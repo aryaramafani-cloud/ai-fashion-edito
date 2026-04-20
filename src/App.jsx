@@ -21,7 +21,7 @@ const prompts = [
       Di sekitar pakaian, tambahkan: satu tanaman hias hijau dalam pot, sebuah laptop modern, sebuah topi, dan sepasang sepatu kasual.
       Berikan cermin di sampingnya yang memantulkan pemandangan tersebut. 
       Gaya: Fotografi realistis, Ultra HD, resolusi tinggi, pencahayaan sinematik.
-      Hasilkan gambar ini dengan orientasi dan rasio aspek ${ratioValue} yang tepat (Piksel sekitar ${ratioWidth}x${ratioHeight}).
+      Rasio aspek ${ratioValue} (${ratioWidth}x${ratioHeight} piksel).
     `
   },
   {
@@ -29,15 +29,13 @@ const prompts = [
     label: 'Gaya Minimalis (DikShop21)',
     description: 'Karpet bulu terang, lantai kayu gelap, buku, sinar jendela',
     getPromptText: (ratioValue, ratioWidth, ratioHeight) => `
-      Buat foto produk kaos ini menjadi seperti yang saya perintahkan: Letakkan t-shirt hitam ini di atas karpet berbulu warna abu-abu terang. 
-      SANGAT PENTING: Pertahankan gambar grafis asli pada kaos secara akurat seperti gambar sumber. JANGAN membuat atau menambahkan tulisan, teks, merek, atau logo baru apapun.
-      Susun serapi mungkin seperti foto produk profesional.
-      Sebagai alas utama, gunakan lantai kayu warna abu-abu gelap dengan motif garis kayu yang jelas.
-      Berikan efek sinar matahari yang masuk dari jendela 6 kotak menyinari sebagian baju dan karpet.
-      Pencahayaan bersih, aesthetic, dan minimalis.
-      Berikan aksesoris seperti sebuah buku di sekitarnya.
+      Letakkan t-shirt ini di atas karpet berbulu warna abu-abu terang. 
+      SANGAT PENTING: Pertahankan gambar grafis asli pada kaos secara akurat. JANGAN menambahkan tulisan atau logo baru apapun.
+      Alas utama lantai kayu abu-abu gelap dengan motif garis kayu yang jelas.
+      Efek sinar matahari masuk dari jendela 6 kotak menyinari baju dan karpet.
+      Pencahayaan bersih, aesthetic, minimalis. Tambahkan sebuah buku di sekitarnya.
       Gaya: Fotografi produk profesional, aesthetic minimalis, resolusi 4K.
-      Hasilkan gambar ini dengan orientasi dan rasio aspek ${ratioValue} yang tepat (Piksel sekitar ${ratioWidth}x${ratioHeight}).
+      Rasio aspek ${ratioValue} (${ratioWidth}x${ratioHeight} piksel).
     `
   },
   {
@@ -45,14 +43,13 @@ const prompts = [
     label: 'Gaya Piishoop 🛒🛍️',
     description: 'Lantai karpet abu, cermin, properti lengkap (Oleh Dendi)',
     getPromptText: (ratioValue, ratioWidth, ratioHeight) => `
-      Ganti background dengan lantai karpet abu, letakkan kaos hitam ini di lantai. 
-      SANGAT PENTING: Pertahankan setiap sedetail mungkin dari gambar grafis asli pada baju ini (jangan ubah desainnya).
-      Tambah pantulan cahaya dari jendela. Tambahan satu tanaman hias, laptop, topi, dan sepatu di sekitarnya. 
-      Beri cermin di sampingnya dan gambar baju juga ada terpantul di cerminnya. 
-      Buat serealistis mungkin. 
-      Tambahkan tulisan/watermark "Diciptakan oleh Dendi" di sudut gambar.
+      Ganti background dengan lantai karpet abu, letakkan kaos ini di lantai. 
+      SANGAT PENTING: Pertahankan setiap detail gambar grafis asli pada baju ini, jangan ubah desainnya.
+      Tambah pantulan cahaya dari jendela. Tambahkan satu tanaman hias, laptop, topi, dan sepatu di sekitarnya. 
+      Beri cermin di sampingnya dan gambar baju terpantul di cermin. 
+      Buat serealistis mungkin. Watermark "Diciptakan oleh Dendi" di sudut gambar.
       Gaya: Fotografi realistis, resolusi ultra HD.
-      Hasilkan gambar ini dengan orientasi dan rasio aspek ${ratioValue} yang tepat (Piksel sekitar ${ratioWidth}x${ratioHeight}).
+      Rasio aspek ${ratioValue} (${ratioWidth}x${ratioHeight} piksel).
     `
   }
 ];
@@ -77,31 +74,54 @@ const App = () => {
       const promptText = selectedPrompt.getPromptText(selectedRatio.value, selectedRatio.width, selectedRatio.height);
       const base64Data = originalImage.split(',')[1];
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: promptText }, { inlineData: { mimeType: "image/jpeg", data: base64Data } }] }],
-            generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
-          })
+      // Coba model satu per satu
+      const models = [
+        'gemini-2.0-flash-exp',
+        'gemini-1.5-flash',
+        'gemini-1.5-pro'
+      ];
+
+      let generatedBase64 = null;
+
+      for (const model of models) {
+        try {
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  role: "user",
+                  parts: [
+                    { text: promptText },
+                    { inlineData: { mimeType: "image/jpeg", data: base64Data } }
+                  ]
+                }],
+                generationConfig: {
+                  responseModalities: ["TEXT", "IMAGE"]
+                }
+              })
+            }
+          );
+
+          const result = await response.json();
+
+          if (response.ok) {
+            generatedBase64 = result.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+            if (generatedBase64) break;
+          }
+        } catch (e) {
+          continue;
         }
-      );
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData?.error?.message || "API error");
       }
-
-      const result = await response.json();
-      const generatedBase64 = result.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
 
       if (generatedBase64) {
         setGeneratedImage(`data:image/png;base64,${generatedBase64}`);
       } else {
-        throw new Error("Gagal menghasilkan gambar. Coba lagi.");
+        throw new Error("Model tidak mendukung generate gambar. Coba lagi nanti.");
       }
+
     } catch (err) {
       console.error(err);
       setError(`Error: ${err.message}`);
