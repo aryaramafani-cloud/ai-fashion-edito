@@ -13,44 +13,22 @@ const prompts = [
     id: 'saha_style',
     label: 'Gaya Realistis (SAHA)',
     description: 'Karpet abu, laptop, tanaman, cermin pantulan',
-    getPromptText: (ratioValue, ratioWidth, ratioHeight) => `
-      Ubah latar belakang gambar ini menjadi lantai karpet abu-abu yang elegan. 
-      Letakkan kaos hitam ini di atas lantai dalam tata letak flat lay. 
-      SANGAT PENTING: Pertahankan desain gambar grafis asli pada kaos persis 100% seperti gambar yang diunggah. JANGAN menambahkan tulisan, teks, atau logo baru apapun pada kaos.
-      Tambahkan pantulan cahaya jendela yang realistis di atas lantai karpet. 
-      Di sekitar pakaian, tambahkan: satu tanaman hias hijau dalam pot, sebuah laptop modern, sebuah topi, dan sepasang sepatu kasual.
-      Berikan cermin di sampingnya yang memantulkan pemandangan tersebut. 
-      Gaya: Fotografi realistis, Ultra HD, resolusi tinggi, pencahayaan sinematik.
-      Rasio aspek ${ratioValue} (${ratioWidth}x${ratioHeight} piksel).
-    `
+    getPromptText: () =>
+      `black t-shirt flat lay on elegant gray carpet floor, realistic product photography, window light reflection on carpet, green houseplant in pot nearby, modern laptop, hat, casual shoes around it, mirror reflection on the side, ultra HD cinematic lighting, professional fashion product photo`
   },
   {
     id: 'dikshop_style',
     label: 'Gaya Minimalis (DikShop21)',
     description: 'Karpet bulu terang, lantai kayu gelap, buku, sinar jendela',
-    getPromptText: (ratioValue, ratioWidth, ratioHeight) => `
-      Letakkan t-shirt ini di atas karpet berbulu warna abu-abu terang. 
-      SANGAT PENTING: Pertahankan gambar grafis asli pada kaos secara akurat. JANGAN menambahkan tulisan atau logo baru apapun.
-      Alas utama lantai kayu abu-abu gelap dengan motif garis kayu yang jelas.
-      Efek sinar matahari masuk dari jendela 6 kotak menyinari baju dan karpet.
-      Pencahayaan bersih, aesthetic, minimalis. Tambahkan sebuah buku di sekitarnya.
-      Gaya: Fotografi produk profesional, aesthetic minimalis, resolusi 4K.
-      Rasio aspek ${ratioValue} (${ratioWidth}x${ratioHeight} piksel).
-    `
+    getPromptText: () =>
+      `black t-shirt neatly placed on light gray fluffy rug, dark gray wooden floor background, 6-pane window sunlight effect on shirt and rug, minimalist aesthetic product photography, book accessory nearby, clean professional lighting, 4K resolution`
   },
   {
     id: 'piishoop_style',
     label: 'Gaya Piishoop 🛒🛍️',
     description: 'Lantai karpet abu, cermin, properti lengkap (Oleh Dendi)',
-    getPromptText: (ratioValue, ratioWidth, ratioHeight) => `
-      Ganti background dengan lantai karpet abu, letakkan kaos ini di lantai. 
-      SANGAT PENTING: Pertahankan setiap detail gambar grafis asli pada baju ini, jangan ubah desainnya.
-      Tambah pantulan cahaya dari jendela. Tambahkan satu tanaman hias, laptop, topi, dan sepatu di sekitarnya. 
-      Beri cermin di sampingnya dan gambar baju terpantul di cermin. 
-      Buat serealistis mungkin. Watermark "Diciptakan oleh Dendi" di sudut gambar.
-      Gaya: Fotografi realistis, resolusi ultra HD.
-      Rasio aspek ${ratioValue} (${ratioWidth}x${ratioHeight} piksel).
-    `
+    getPromptText: () =>
+      `black t-shirt on gray carpet floor, realistic ultra HD product photography, window light reflection, green houseplant, laptop, hat, shoes around the shirt, large mirror beside showing shirt reflection, professional fashion photography, cinematic realism`
   }
 ];
 
@@ -61,72 +39,74 @@ const App = () => {
   const [error, setError] = useState(null);
   const [selectedRatio, setSelectedRatio] = useState(aspectRatios[0]);
   const [selectedPrompt, setSelectedPrompt] = useState(prompts[2]);
+  const [step, setStep] = useState('');
 
   const apiKey = "AIzaSyDKTemR-SHpmpygN9VHSER8Ufi-lE3koV0";
 
   const generateImage = async () => {
     setIsGenerating(true);
     setError(null);
+    setGeneratedImage(null);
 
     try {
       if (!originalImage) throw new Error("Silakan unggah gambar baju terlebih dahulu.");
 
-      const promptText = selectedPrompt.getPromptText(selectedRatio.value, selectedRatio.width, selectedRatio.height);
+      // Step 1: Analisis gambar dengan Gemini
+      setStep('Menganalisis gambar baju...');
       const base64Data = originalImage.split(',')[1];
 
-      // Coba model satu per satu
-      const models = [
-        'gemini-2.0-flash-exp',
-        'gemini-1.5-flash',
-        'gemini-1.5-pro'
-      ];
-
-      let generatedBase64 = null;
-
-      for (const model of models) {
-        try {
-          const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{
-                  role: "user",
-                  parts: [
-                    { text: promptText },
-                    { inlineData: { mimeType: "image/jpeg", data: base64Data } }
-                  ]
-                }],
-                generationConfig: {
-                  responseModalities: ["TEXT", "IMAGE"]
-                }
-              })
-            }
-          );
-
-          const result = await response.json();
-
-          if (response.ok) {
-            generatedBase64 = result.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
-            if (generatedBase64) break;
-          }
-        } catch (e) {
-          continue;
+      const geminiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              role: "user",
+              parts: [
+                {
+                  text: `Analyze this t-shirt image and describe ONLY: the shirt color, any graphic/text/design on it, and shirt style. Be very brief, max 30 words. English only.`
+                },
+                { inlineData: { mimeType: "image/jpeg", data: base64Data } }
+              ]
+            }]
+          })
         }
-      }
+      );
 
-      if (generatedBase64) {
-        setGeneratedImage(`data:image/png;base64,${generatedBase64}`);
-      } else {
-        throw new Error("Model tidak mendukung generate gambar. Coba lagi nanti.");
-      }
+      const geminiResult = await geminiResponse.json();
+      const shirtDescription = geminiResult.candidates?.[0]?.content?.parts?.[0]?.text || 'black t-shirt with graphic print';
+
+      // Step 2: Generate gambar dengan Pollinations AI (gratis, tanpa API key)
+      setStep('Membuat foto produk...');
+      const basePrompt = selectedPrompt.getPromptText();
+      const fullPrompt = `${shirtDescription}, ${basePrompt}`;
+      const encodedPrompt = encodeURIComponent(fullPrompt);
+
+      const width = selectedRatio.width > 1024 ? 1024 : selectedRatio.width;
+      const height = selectedRatio.height > 1024 ? 1024 : selectedRatio.height;
+
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=flux&seed=${Date.now()}&nologo=true`;
+
+      // Fetch gambar sebagai blob
+      const imgResponse = await fetch(imageUrl);
+      if (!imgResponse.ok) throw new Error("Gagal generate gambar dari Pollinations AI");
+
+      const blob = await imgResponse.blob();
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setGeneratedImage(reader.result);
+        setIsGenerating(false);
+        setStep('');
+      };
+      reader.readAsDataURL(blob);
+      return;
 
     } catch (err) {
       console.error(err);
       setError(`Error: ${err.message}`);
-    } finally {
       setIsGenerating(false);
+      setStep('');
     }
   };
 
@@ -239,7 +219,8 @@ const App = () => {
                 {isGenerating ? (
                   <div className="flex flex-col items-center gap-4 p-6 text-center">
                     <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
-                    <p className="text-neutral-400 animate-pulse text-sm">Menerapkan {selectedPrompt.label}...</p>
+                    <p className="text-neutral-400 animate-pulse text-sm">{step || 'Memproses...'}</p>
+                    <p className="text-neutral-600 text-xs">Mohon tunggu 15-30 detik</p>
                   </div>
                 ) : generatedImage ? (
                   <img src={generatedImage} alt="Generated" className="w-full h-full object-cover" />
@@ -270,7 +251,7 @@ const App = () => {
 
         <footer className="mt-8 mb-4 text-center text-neutral-500 text-sm">
           <p className="font-semibold text-neutral-400">© Diciptakan oleh Dendi</p>
-          <p className="text-xs mt-1 opacity-70">Ditenagai oleh Google Gemini AI untuk hasil HD</p>
+          <p className="text-xs mt-1 opacity-70">Ditenagai oleh Gemini AI + Pollinations AI</p>
         </footer>
       </div>
     </div>
