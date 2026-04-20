@@ -65,7 +65,7 @@ const App = () => {
   const [selectedRatio, setSelectedRatio] = useState(aspectRatios[0]);
   const [selectedPrompt, setSelectedPrompt] = useState(prompts[2]);
 
-  const apiKey = "AIzaSyA5zYs5UmqIVdUCWTrsBZsU-JfY6huzIKI";
+  const apiKey = "AIzaSyDKTemR-SHpmpygN9VHSER8Ufi-lE3koV0";
 
   const generateImage = async () => {
     setIsGenerating(true);
